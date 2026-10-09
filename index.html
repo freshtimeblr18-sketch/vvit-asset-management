@@ -331,9 +331,7 @@
             return select.value;
         }
 
-        // Format Generator: VVIT/DEPT/ROOM/SEQ (e.g. VVIT/CS/002/001)
         function generateCustomAssetId(department, roomNo) {
-            // 1. Department code
             let dCode = 'GEN';
             const dLower = department.toLowerCase();
             if (dLower.includes('computer science') || dLower.includes('cse')) dCode = 'CS';
@@ -344,22 +342,18 @@
             else if (dLower.includes('basic')) dCode = 'BS';
             else if (dLower.includes('admin')) dCode = 'AD';
             else {
-                // Use first two letters of custom name
                 dCode = department.replace(/[^a-zA-Z]/g, '').substring(0, 2).toUpperCase() || 'IT';
             }
 
-            // 2. Room code padded to 3 digits
             const digits = roomNo.match(/\d+/);
             const rCode = digits ? String(digits[0]).padStart(3, '0') : roomNo.replace(/[^a-zA-Z0-9]/g, '').substring(0, 3).toUpperCase().padStart(3, '0');
 
-            // 3. Count existing assets in that same room to increment sequence
             const existingInRoom = state.assets.filter(a => a.roomNo === roomNo).length;
             const seqCode = String(existingInRoom + 1).padStart(3, '0');
 
             return `VVIT/${dCode}/${rCode}/${seqCode}`;
         }
 
-        // Success Pop-up Modal helpers
         window.closeAssetSuccessModal = () => {
             assetSuccessModal.classList.add('hidden');
             navigate('dashboard');
@@ -371,7 +365,6 @@
             showToast("Asset ID copied to clipboard!", "success");
         };
 
-        // Dispatcher to Google Sheets
         async function sendToGoogleSheet(payload) {
             if (!GOOGLE_SHEET_WEBAPP_URL) return;
             try {
@@ -385,6 +378,37 @@
                 console.error("Google Sheets Dispatch Error:", err);
             }
         }
+
+        // Dual Database Synchronizer
+        window.refreshDualDB = async () => {
+            const btn = document.getElementById('refreshDualDbBtn');
+            const icon = btn?.querySelector('i');
+            if (icon) icon.classList.add('fa-spin');
+
+            try {
+                // 1. Reload LocalStorage state
+                loadLocalData();
+
+                // 2. Ping Google Sheets Web App endpoint
+                if (GOOGLE_SHEET_WEBAPP_URL) {
+                    await fetch(GOOGLE_SHEET_WEBAPP_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'ping_sync', timestamp: new Date().toISOString() })
+                    });
+                }
+
+                render();
+                showToast("Dual DB refreshed: Browser & Google Sheets synchronized.", "success");
+            } catch (err) {
+                console.error("Refresh Dual DB Error:", err);
+                render();
+                showToast("Local DB reloaded. Sheet sync check finished.", "info");
+            } finally {
+                if (icon) icon.classList.remove('fa-spin');
+            }
+        };
 
         window.handleLoginSubmit = (e) => {
             e.preventDefault();
@@ -555,7 +579,6 @@
             }
         };
 
-        // Handle Asset Submission (Generates formatted ID and triggers popup)
         window.handleAssetSubmit = (e) => {
             e.preventDefault();
             const status = document.getElementById('assetStatus').value;
@@ -605,7 +628,6 @@
                 configSummary = `PC: ${desktopBrand} | Mon: ${monitorBrand} | CPU: ${cpuBrand} ${cpuModel}${intelGen} | RAM: ${ram} | ${storageText} | OS: ${os}`;
             }
 
-            // Generate structured Asset ID format (e.g. VVIT/CS/002/001)
             const generatedAssetId = generateCustomAssetId(department, selectedRoom);
 
             const newAsset = {
@@ -626,13 +648,11 @@
             state.assets.unshift(newAsset);
             saveAssets();
 
-            // 1. Sync asset to Google Sheets (Assets sheet)
             sendToGoogleSheet({
                 action: 'add_asset',
                 ...newAsset
             });
 
-            // 2. If Not Working, register complaint locally and in Google Sheets
             if (status === 'Not Working') {
                 const autoTicket = {
                     id: 'cmp_' + Date.now(),
@@ -656,14 +676,12 @@
                 });
             }
 
-            // Show Popup Modal with generated Asset ID, Department, Room No
             document.getElementById('popAssetId').innerText = generatedAssetId;
             document.getElementById('popDepartment').innerText = department;
             document.getElementById('popRoomNo').innerText = selectedRoom;
             assetSuccessModal.classList.remove('hidden');
         };
 
-        // Delete Asset (Deletes locally and removes corresponding row from Google Sheets)
         window.deleteAsset = (id) => {
             if (state.currentUser?.role !== 'Admin') {
                 showToast("Access Denied: Only Admins can delete assets.", "error");
@@ -684,7 +702,6 @@
             }
         };
 
-        // Manual Complaint Submission
         window.handleComplaintSubmit = (e) => {
             e.preventDefault();
             const selectedAssetId = document.getElementById('complaintAsset').value;
@@ -944,9 +961,14 @@
                             ${isAdmin ? 'Showing all assets across institute departments' : `Showing assets assigned to your rooms: ${state.currentUser.allocatedRooms.join(', ')}`}
                         </p>
                     </div>
-                    <button onclick="navigate('add-asset')" class="bg-vvit-gold text-vvit-navy px-4 py-2 rounded font-semibold hover:bg-yellow-500">
-                        <i class="fas fa-plus mr-1"></i> Add Asset
-                    </button>
+                    <div class="flex items-center gap-3">
+                        <button id="refreshDualDbBtn" onclick="refreshDualDB()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded font-semibold hover:bg-gray-50 shadow-sm transition flex items-center gap-2">
+                            <i class="fas fa-sync-alt text-vvit-navy"></i> Refresh Dual DB
+                        </button>
+                        <button onclick="navigate('add-asset')" class="bg-vvit-gold text-vvit-navy px-4 py-2 rounded font-semibold hover:bg-yellow-500 shadow transition flex items-center gap-1">
+                            <i class="fas fa-plus"></i> Add Asset
+                        </button>
+                    </div>
                 </div>
 
                 <div class="bg-white rounded shadow overflow-x-auto">
