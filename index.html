@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VVIT Asset Management & Auditing</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        vvit: {
+                            navy: '#1e3a8a',
+                            gold: '#fbbf24',
+                            light: '#f8fafc',
+                            dark: '#0f172a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans h-screen overflow-hidden flex flex-col">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 w-80"></div>
+
+    <div id="app-container" class="w-full h-full flex flex-col"></div>
+
+    <!-- Mandatory Password Change Modal -->
+    <div id="password-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full shadow-2xl border-t-4 border-vvit-gold">
+            <h3 class="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
+                <i class="fas fa-key text-vvit-gold"></i> Change Your Password
+            </h3>
+            <p class="text-sm text-gray-600 mb-4">You are using a default/temporary password. You must configure a new password before proceeding.</p>
+            <form onsubmit="handleMandatoryPasswordChange(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700">New Password</label>
+                    <input type="password" id="modalNewPassword" required minlength="4" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-vvit-navy focus:border-vvit-navy">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700">Confirm Password</label>
+                    <input type="password" id="modalConfirmPassword" required minlength="4" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-vvit-navy focus:border-vvit-navy">
+                </div>
+                <button type="submit" class="w-full py-2 bg-vvit-navy text-white rounded text-sm font-semibold hover:bg-blue-800">
+                    Update Password & Proceed
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Asset Registration Success Modal -->
+    <div id="asset-success-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl p-6 max-w-md w-full shadow-2xl border-t-8 border-green-500 text-center animate-fade-in">
+            <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-inner">
+                <i class="fas fa-check"></i>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-1">Asset Successfully Added!</h3>
+            <p class="text-xs text-gray-500 mb-5">Record synced with registry & Google Sheets</p>
+
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-left space-y-3 mb-5">
+                <div>
+                    <span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Asset ID</span>
+                    <div class="flex items-center justify-between mt-0.5">
+                        <span id="popAssetId" class="text-lg font-mono font-bold text-vvit-navy">VVIT/CS/002/001</span>
+                        <button onclick="copyPopAssetId()" class="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 bg-blue-50 border border-blue-200 rounded">
+                            <i class="fas fa-copy mr-1"></i>Copy
+                        </button>
+                    </div>
+                </div>
+                <div class="border-t border-gray-200 pt-2 grid grid-cols-2 gap-2">
+                    <div>
+                        <span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Department</span>
+                        <p id="popDepartment" class="text-xs font-semibold text-gray-800 truncate">Computer Science (CSE)</p>
+                    </div>
+                    <div>
+                        <span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Room No</span>
+                        <p id="popRoomNo" class="text-xs font-semibold text-gray-800">Room 002</p>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="closeAssetSuccessModal()" class="w-full py-2.5 bg-vvit-navy text-white rounded-lg text-sm font-semibold hover:bg-blue-800 transition shadow">
+                Done & View Dashboard
+            </button>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="edit-user-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg p-6 max-w-lg w-full shadow-2xl border-t-4 border-vvit-navy">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-lg font-bold text-gray-900">Edit User Profile</h3>
+                <button onclick="closeEditUserModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+            </div>
+            <form onsubmit="saveEditedUser(event)" class="space-y-3">
+                <input type="hidden" id="editUserId">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700">Full Name</label>
+                    <input type="text" id="editUserName" required class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700">Department</label>
+                    <select id="editUserDept" onchange="toggleOtherInput('editUserDept', 'editUserDeptOther')" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm">
+                    </select>
+                    <input type="text" id="editUserDeptOther" class="mt-2 block w-full border border-blue-400 rounded px-3 py-1.5 text-xs bg-white hidden" placeholder="Enter custom department">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700">Allocated Rooms (Comma separated)</label>
+                    <input type="text" id="editUserRooms" required class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700">Role</label>
+                    <select id="editUserRole" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm">
+                        <option value="User">Standard User</option>
+                        <option value="Admin">Administrator</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeEditUserModal()" class="px-4 py-2 border rounded text-xs">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-vvit-navy text-white rounded text-xs font-bold hover:bg-blue-800">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Resolve Complaint Modal -->
+    <div id="resolve-complaint-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full shadow-2xl border-t-4 border-green-600">
+            <h3 class="text-lg font-bold text-gray-900 mb-2">Update Complaint & Asset Status</h3>
+            <form onsubmit="handleResolveComplaintSubmit(event)" class="space-y-4">
+                <input type="hidden" id="resolveComplaintId">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700">Assign Admin In-Charge</label>
+                    <select id="resolveAssignAdmin" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white">
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700">Ticket Status</label>
+                    <select id="resolveTicketStatus" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white">
+                        <option value="Open">Open</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Resolved">Resolved</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700">Update Linked Asset Status</label>
+                    <select id="resolveAssetStatus" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white">
+                        <option value="Working">Working</option>
+                        <option value="Not Working">Not Working</option>
+                        <option value="Under Maintenance">Under Maintenance</option>
+                    </select>
+                    <p class="text-[10px] text-gray-500 mt-1">This will automatically sync and update the Asset Directory record.</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700">Resolution Remarks</label>
+                    <textarea id="resolveRemarks" rows="2" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-xs" placeholder="Parts replaced, technician details..."></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeResolveModal()" class="px-4 py-2 border rounded text-xs">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700">Update & Sync</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const GOOGLE_SHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxlGZ6pnpLBGlrjV6Q_RnurK20Wxc-2-o9m-WrDNKAtKnIncOG_T1DLKABawfn4w1zS/exec";
+
+        const STORAGE_KEYS = {
+            USERS: 'vvit_asset_users',
+            ASSETS: 'vvit_asset_items',
+            COMPLAINTS: 'vvit_asset_complaints',
+            CUSTOM_OPTIONS: 'vvit_custom_options'
+        };
+
+        const DEFAULT_PASSWORD = 'vvit@123';
+
+        const DEFAULT_OPTIONS = {
+            departments: [
+                'Computer Science (CSE)',
+                'Information Science (ISE)',
+                'Electronics & Comm (ECE)',
+                'Mechanical Eng',
+                'Civil Eng',
+                'Basic Science',
+                'Central Administration'
+            ],
+            desktopBrands: ['Dell', 'HP', 'Lenovo', 'Acer', 'Assembled / Custom', 'Apple'],
+            monitorBrands: ['Dell', 'HP', 'LG', 'Samsung', 'Lenovo', 'BenQ', 'Acer'],
+            cpuBrands: ['Intel', 'AMD'],
+            cpuModelsIntel: ['Core i3', 'Core i5', 'Core i7', 'Core i9', 'Xeon', 'Pentium / Celeron'],
+            cpuModelsAmd: ['Ryzen 3', 'Ryzen 5', 'Ryzen 7', 'Ryzen 9', 'Athlon', 'Threadripper'],
+            intelGens: ['14th Gen', '13th Gen', '12th Gen', '11th Gen', '10th Gen', '9th Gen', '8th Gen', '7th Gen or older'],
+            ramCapacities: ['4 GB', '8 GB', '16 GB', '32 GB', '64 GB'],
+            ssdSizes: ['128 GB', '256 GB', '512 GB', '1 TB', '2 TB'],
+            hddSizes: ['500 GB', '1 TB', '2 TB'],
+            osTypes: ['Windows 11', 'Windows 10', 'Ubuntu / Linux', 'Dual Boot (Win + Linux)', 'macOS', 'No OS (DOS)']
+        };
+
+        const state = {
+            currentUser: null,
+            currentView: 'login',
+            assets: [],
+            users: [],
+            complaints: [],
+            options: {}
+        };
+
+        const appContainer = document.getElementById('app-container');
+        const toastContainer = document.getElementById('toast-container');
+        const passwordModal = document.getElementById('password-modal');
+        const assetSuccessModal = document.getElementById('asset-success-modal');
+        const editUserModal = document.getElementById('edit-user-modal');
+        const resolveModal = document.getElementById('resolve-complaint-modal');
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            const colors = {
+                success: 'bg-green-100 border-green-500 text-green-800',
+                error: 'bg-red-100 border-red-500 text-red-800',
+                info: 'bg-blue-100 border-blue-500 text-blue-800'
+            };
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                info: 'fa-info-circle'
+            };
+
+            toast.className = `p-4 border-l-4 rounded shadow-md flex items-center gap-3 ${colors[type]}`;
+            toast.innerHTML = `
+                <i class="fas ${icons[type]} text-lg"></i>
+                <span class="font-medium flex-1 text-sm">${message}</span>
+                <button onclick="this.parentElement.remove()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            toastContainer.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        function loadLocalData() {
+            const rawOptions = localStorage.getItem(STORAGE_KEYS.CUSTOM_OPTIONS);
+            if (!rawOptions) {
+                state.options = JSON.parse(JSON.stringify(DEFAULT_OPTIONS));
+                localStorage.setItem(STORAGE_KEYS.CUSTOM_OPTIONS, JSON.stringify(state.options));
+            } else {
+                state.options = JSON.parse(rawOptions);
+            }
+
+            const rawUsers = localStorage.getItem(STORAGE_KEYS.USERS);
+            if (!rawUsers) {
+                const defaultAdmin = [{
+                    id: 'usr_default_admin',
+                    name: 'System Admin',
+                    email: 'admin@vvit.edu',
+                    password: 'admin',
+                    department: 'Central Administration',
+                    allocatedRooms: ['All Rooms'],
+                    role: 'Admin',
+                    mustChangePassword: false,
+                    createdAt: new Date().toISOString()
+                }];
+                localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(defaultAdmin));
+                state.users = defaultAdmin;
+            } else {
+                state.users = JSON.parse(rawUsers);
+            }
+
+            const rawAssets = localStorage.getItem(STORAGE_KEYS.ASSETS);
+            state.assets = rawAssets ? JSON.parse(rawAssets) : [];
+
+            const rawComplaints = localStorage.getItem(STORAGE_KEYS.COMPLAINTS);
+            state.complaints = rawComplaints ? JSON.parse(rawComplaints) : [];
+        }
+
+        function saveUsers() { localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(state.users)); }
+        function saveAssets() { localStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(state.assets)); }
+        function saveComplaints() { localStorage.setItem(STORAGE_KEYS.COMPLAINTS, JSON.stringify(state.complaints)); }
+        function saveOptions() { localStorage.setItem(STORAGE_KEYS.CUSTOM_OPTIONS, JSON.stringify(state.options)); }
+
+        function registerNewOption(listKey, value) {
+            if (!value) return;
+            const cleaned = value.trim();
+            if (!cleaned || cleaned.toLowerCase() === 'other') return;
+            if (!state.options[listKey]) state.options[listKey] = [];
+            if (!state.options[listKey].some(item => item.toLowerCase() === cleaned.toLowerCase())) {
+                state.options[listKey].push(cleaned);
+                saveOptions();
+            }
+        }
+
+        function buildOptions(listKey, selectedValue = '') {
+            const list = state.options[listKey] || [];
+            return list.map(item => `<option value="${item}" ${item === selectedValue ? 'selected' : ''}>${item}</option>`).join('') + `<option value="Other">Other</option>`;
+        }
+
+        window.toggleOtherInput = (selectId, inputId) => {
+            const selectEl = document.getElementById(selectId);
+            const inputEl = document.getElementById(inputId);
+            if (!selectEl || !inputEl) return;
+            if (selectEl.value === 'Other') {
+                inputEl.classList.remove('hidden');
+                inputEl.setAttribute('required', 'required');
+            } else {
+                inputEl.classList.add('hidden');
+                inputEl.removeAttribute('required');
+                inputEl.value = '';
+            }
+        };
+
+        function getResolvedValueAndRegister(selectId, otherInputId, listKey) {
+            const select = document.getElementById(selectId);
+            if (!select) return 'N/A';
+            if (select.value === 'Other') {
+                const other = document.getElementById(otherInputId);
+                const val = other && other.value.trim() ? other.value.trim() : 'Other';
+                registerNewOption(listKey, val);
+                return val;
+            }
+            return select.value;
+        }
+
+        // Format Generator: VVIT/DEPT/ROOM/SEQ (e.g. VVIT/CS/002/001)
+        function generateCustomAssetId(department, roomNo) {
+            // 1. Department code
+            let dCode = 'GEN';
+            const dLower = department.toLowerCase();
+            if (dLower.includes('computer science') || dLower.includes('cse')) dCode = 'CS';
+            else if (dLower.includes('information science') || dLower.includes('ise')) dCode = 'IS';
+            else if (dLower.includes('electronics') || dLower.includes('ece')) dCode = 'EC';
+            else if (dLower.includes('mechanical')) dCode = 'ME';
+            else if (dLower.includes('civil')) dCode = 'CV';
+            else if (dLower.includes('basic')) dCode = 'BS';
+            else if (dLower.includes('admin')) dCode = 'AD';
+            else {
+                // Use first two letters of custom name
+                dCode = department.replace(/[^a-zA-Z]/g, '').substring(0, 2).toUpperCase() || 'IT';
+            }
+
+            // 2. Room code padded to 3 digits
+            const digits = roomNo.match(/\d+/);
+            const rCode = digits ? String(digits[0]).padStart(3, '0') : roomNo.replace(/[^a-zA-Z0-9]/g, '').substring(0, 3).toUpperCase().padStart(3, '0');
+
+            // 3. Count existing assets in that same room to increment sequence
+            const existingInRoom = state.assets.filter(a => a.roomNo === roomNo).length;
+            const seqCode = String(existingInRoom + 1).padStart(3, '0');
+
+            return `VVIT/${dCode}/${rCode}/${seqCode}`;
+        }
+
+        // Success Pop-up Modal helpers
+        window.closeAssetSuccessModal = () => {
+            assetSuccessModal.classList.add('hidden');
+            navigate('dashboard');
+        };
+
+        window.copyPopAssetId = () => {
+            const text = document.getElementById('popAssetId').innerText;
+            navigator.clipboard.writeText(text);
+            showToast("Asset ID copied to clipboard!", "success");
+        };
+
+        // Dispatcher to Google Sheets
+        async function sendToGoogleSheet(payload) {
+            if (!GOOGLE_SHEET_WEBAPP_URL) return;
+            try {
+                await fetch(GOOGLE_SHEET_WEBAPP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } catch (err) {
+                console.error("Google Sheets Dispatch Error:", err);
+            }
+        }
+
+        window.handleLoginSubmit = (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            loadLocalData();
+            const matchedUser = state.users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+
+            if (matchedUser) {
+                state.currentUser = matchedUser;
+                if (matchedUser.mustChangePassword) {
+                    passwordModal.classList.remove('hidden');
+                } else {
+                    state.currentView = 'dashboard';
+                    showToast(`Welcome, ${matchedUser.name}!`, "success");
+                    render();
+                }
+            } else {
+                showToast("Invalid credentials.", "error");
+            }
+        };
+
+        window.handleMandatoryPasswordChange = (e) => {
+            e.preventDefault();
+            const p1 = document.getElementById('modalNewPassword').value;
+            const p2 = document.getElementById('modalConfirmPassword').value;
+
+            if (p1 !== p2) {
+                showToast("Passwords do not match.", "error");
+                return;
+            }
+
+            state.currentUser.password = p1;
+            state.currentUser.mustChangePassword = false;
+
+            const uIdx = state.users.findIndex(u => u.id === state.currentUser.id);
+            if (uIdx !== -1) {
+                state.users[uIdx].password = p1;
+                state.users[uIdx].mustChangePassword = false;
+                saveUsers();
+            }
+
+            passwordModal.classList.add('hidden');
+            state.currentView = 'dashboard';
+            showToast("Password updated successfully.", "success");
+            render();
+        };
+
+        window.handleLogout = () => {
+            state.currentUser = null;
+            state.currentView = 'login';
+            showToast("Logged out.", "info");
+            render();
+        };
+
+        window.navigate = (view) => {
+            state.currentView = view;
+            render();
+        };
+
+        window.openEditUserModal = (userId) => {
+            const user = state.users.find(u => u.id === userId);
+            if (!user) return;
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('editUserName').value = user.name;
+            document.getElementById('editUserDept').innerHTML = buildOptions('departments', user.department);
+            document.getElementById('editUserRooms').value = Array.isArray(user.allocatedRooms) ? user.allocatedRooms.join(', ') : user.allocatedRooms;
+            document.getElementById('editUserRole').value = user.role;
+            editUserModal.classList.remove('hidden');
+        };
+
+        window.closeEditUserModal = () => {
+            editUserModal.classList.add('hidden');
+        };
+
+        window.saveEditedUser = (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editUserId').value;
+            const user = state.users.find(u => u.id === id);
+            if (!user) return;
+
+            const dept = getResolvedValueAndRegister('editUserDept', 'editUserDeptOther', 'departments');
+            const role = document.getElementById('editUserRole').value;
+            const rawRooms = document.getElementById('editUserRooms').value;
+
+            user.name = document.getElementById('editUserName').value;
+            user.department = dept;
+            user.role = role;
+            user.allocatedRooms = role === 'Admin' ? ['All Rooms'] : rawRooms.split(',').map(r => r.trim()).filter(Boolean);
+
+            saveUsers();
+            closeEditUserModal();
+            showToast("User details updated successfully.", "success");
+            render();
+        };
+
+        window.resetUserPassword = (userId) => {
+            const user = state.users.find(u => u.id === userId);
+            if (!user) return;
+            user.password = DEFAULT_PASSWORD;
+            user.mustChangePassword = true;
+            saveUsers();
+            showToast(`Password reset to ${DEFAULT_PASSWORD} for ${user.name}.`, "success");
+            render();
+        };
+
+        window.deleteUser = (userId) => {
+            if (userId === state.currentUser.id) {
+                showToast("You cannot delete your own logged-in account.", "error");
+                return;
+            }
+            if (confirm("Are you sure you want to delete this user?")) {
+                state.users = state.users.filter(u => u.id !== userId);
+                saveUsers();
+                showToast("User deleted.", "info");
+                render();
+            }
+        };
+
+        window.onAssetStatusChange = () => {
+            const status = document.getElementById('assetStatus').value;
+            const workingFields = document.getElementById('workingFieldsContainer');
+            const slNoInput = document.getElementById('slNo');
+
+            if (status === 'Not Working') {
+                workingFields.classList.add('hidden');
+                slNoInput.removeAttribute('required');
+            } else {
+                workingFields.classList.remove('hidden');
+                slNoInput.setAttribute('required', 'required');
+            }
+        };
+
+        window.onProcessorBrandChange = () => {
+            toggleOtherInput('cpuBrand', 'cpuBrandOther');
+            const brand = document.getElementById('cpuBrand').value;
+            const modelSelect = document.getElementById('cpuModel');
+            const intelGenContainer = document.getElementById('intelGenContainer');
+
+            if (brand === 'AMD') {
+                intelGenContainer.classList.add('hidden');
+                modelSelect.innerHTML = buildOptions('cpuModelsAmd');
+            } else if (brand === 'Intel') {
+                intelGenContainer.classList.remove('hidden');
+                modelSelect.innerHTML = buildOptions('cpuModelsIntel');
+            } else {
+                intelGenContainer.classList.add('hidden');
+                modelSelect.innerHTML = `<option value="Standard">Standard Model</option><option value="Other">Other</option>`;
+            }
+            toggleOtherInput('cpuModel', 'cpuModelOther');
+        };
+
+        window.onStorageTypeChange = () => {
+            const type = document.getElementById('storageType').value;
+            const ssdBox = document.getElementById('ssdCapacityContainer');
+            const hddBox = document.getElementById('hddCapacityContainer');
+
+            if (type === 'SSD') {
+                ssdBox.classList.remove('hidden');
+                hddBox.classList.add('hidden');
+            } else if (type === 'HDD') {
+                ssdBox.classList.add('hidden');
+                hddBox.classList.remove('hidden');
+            } else if (type === 'Both') {
+                ssdBox.classList.remove('hidden');
+                hddBox.classList.remove('hidden');
+            }
+        };
+
+        // Handle Asset Submission (Generates formatted ID and triggers popup)
+        window.handleAssetSubmit = (e) => {
+            e.preventDefault();
+            const status = document.getElementById('assetStatus').value;
+            const selectedRoom = document.getElementById('roomNo').value;
+            const remarks = document.getElementById('remarks').value;
+            const keyboard = document.getElementById('keyboard').value;
+            const mouse = document.getElementById('mouse').value;
+
+            let department = state.currentUser.department || 'General';
+            if (state.currentUser.role === 'Admin') {
+                department = getResolvedValueAndRegister('assetDepartment', 'assetDepartmentOther', 'departments');
+            }
+
+            let slNo = 'N/A';
+            let configSummary = 'N/A (Device Reported Not Working)';
+            let network = 'N/A';
+
+            if (status === 'Working') {
+                slNo = document.getElementById('slNo').value;
+                network = document.getElementById('network').value;
+
+                const desktopBrand = getResolvedValueAndRegister('desktopBrand', 'desktopBrandOther', 'desktopBrands');
+                const monitorBrand = getResolvedValueAndRegister('monitorBrand', 'monitorBrandOther', 'monitorBrands');
+                const cpuBrand = getResolvedValueAndRegister('cpuBrand', 'cpuBrandOther', 'cpuBrands');
+
+                const modelListKey = cpuBrand === 'AMD' ? 'cpuModelsAmd' : (cpuBrand === 'Intel' ? 'cpuModelsIntel' : null);
+                const cpuModel = getResolvedValueAndRegister('cpuModel', 'cpuModelOther', modelListKey);
+                
+                let intelGen = '';
+                if (document.getElementById('cpuBrand').value === 'Intel') {
+                    intelGen = ` (${getResolvedValueAndRegister('intelGen', 'intelGenOther', 'intelGens')})`;
+                }
+
+                const ram = getResolvedValueAndRegister('ramCapacity', 'ramCapacityOther', 'ramCapacities');
+                const storageType = document.getElementById('storageType').value;
+
+                let storageText = '';
+                if (storageType === 'SSD') {
+                    storageText = `SSD: ${getResolvedValueAndRegister('ssdSize', 'ssdSizeOther', 'ssdSizes')}`;
+                } else if (storageType === 'HDD') {
+                    storageText = `HDD: ${getResolvedValueAndRegister('hddSize', 'hddSizeOther', 'hddSizes')}`;
+                } else {
+                    storageText = `SSD: ${getResolvedValueAndRegister('ssdSize', 'ssdSizeOther', 'ssdSizes')} + HDD: ${getResolvedValueAndRegister('hddSize', 'hddSizeOther', 'hddSizes')}`;
+                }
+
+                const os = getResolvedValueAndRegister('osType', 'osTypeOther', 'osTypes');
+                configSummary = `PC: ${desktopBrand} | Mon: ${monitorBrand} | CPU: ${cpuBrand} ${cpuModel}${intelGen} | RAM: ${ram} | ${storageText} | OS: ${os}`;
+            }
+
+            // Generate structured Asset ID format (e.g. VVIT/CS/002/001)
+            const generatedAssetId = generateCustomAssetId(department, selectedRoom);
+
+            const newAsset = {
+                id: generatedAssetId,
+                department: department,
+                roomNo: selectedRoom,
+                status: status,
+                slNo: slNo,
+                configuration: configSummary,
+                keyboard: keyboard,
+                mouse: mouse,
+                network: network,
+                remarks: remarks,
+                addedBy: state.currentUser.name,
+                createdAt: new Date().toISOString()
+            };
+
+            state.assets.unshift(newAsset);
+            saveAssets();
+
+            // 1. Sync asset to Google Sheets (Assets sheet)
+            sendToGoogleSheet({
+                action: 'add_asset',
+                ...newAsset
+            });
+
+            // 2. If Not Working, register complaint locally and in Google Sheets
+            if (status === 'Not Working') {
+                const autoTicket = {
+                    id: 'cmp_' + Date.now(),
+                    assetId: generatedAssetId,
+                    department: department,
+                    roomNo: selectedRoom,
+                    slNo: slNo,
+                    issueDescription: remarks || 'Asset marked as Not Working during audit',
+                    reportedBy: state.currentUser.name,
+                    assignedAdmin: 'Unassigned',
+                    status: 'Open',
+                    resolutionRemarks: '',
+                    createdAt: new Date().toISOString()
+                };
+                state.complaints.unshift(autoTicket);
+                saveComplaints();
+
+                sendToGoogleSheet({
+                    action: 'add_complaint',
+                    ...autoTicket
+                });
+            }
+
+            // Show Popup Modal with generated Asset ID, Department, Room No
+            document.getElementById('popAssetId').innerText = generatedAssetId;
+            document.getElementById('popDepartment').innerText = department;
+            document.getElementById('popRoomNo').innerText = selectedRoom;
+            assetSuccessModal.classList.remove('hidden');
+        };
+
+        // Delete Asset (Deletes locally and removes corresponding row from Google Sheets)
+        window.deleteAsset = (id) => {
+            if (state.currentUser?.role !== 'Admin') {
+                showToast("Access Denied: Only Admins can delete assets.", "error");
+                return;
+            }
+
+            if (confirm(`Delete asset record (${id})? This will also remove it from Google Sheets.`)) {
+                state.assets = state.assets.filter(a => a.id !== id);
+                saveAssets();
+
+                sendToGoogleSheet({
+                    action: 'delete_asset',
+                    id: id
+                });
+
+                showToast("Asset deleted from app & Google Sheets.", "info");
+                render();
+            }
+        };
+
+        // Manual Complaint Submission
+        window.handleComplaintSubmit = (e) => {
+            e.preventDefault();
+            const selectedAssetId = document.getElementById('complaintAsset').value;
+            const asset = state.assets.find(a => a.id === selectedAssetId);
+            const issue = document.getElementById('complaintIssue').value;
+
+            const newTicket = {
+                id: 'cmp_' + Date.now(),
+                assetId: asset ? asset.id : '',
+                department: asset ? asset.department : state.currentUser.department,
+                roomNo: asset ? asset.roomNo : 'General',
+                slNo: asset ? asset.slNo : 'N/A',
+                issueDescription: issue,
+                reportedBy: state.currentUser.name,
+                assignedAdmin: 'Unassigned',
+                status: 'Open',
+                resolutionRemarks: '',
+                createdAt: new Date().toISOString()
+            };
+
+            if (asset && asset.status === 'Working') {
+                asset.status = 'Not Working';
+                saveAssets();
+            }
+
+            state.complaints.unshift(newTicket);
+            saveComplaints();
+
+            sendToGoogleSheet({
+                action: 'add_complaint',
+                ...newTicket
+            });
+
+            showToast("Complaint registered and saved to Google Sheets.", "success");
+            e.target.reset();
+            render();
+        };
+
+        window.openResolveModal = (complaintId) => {
+            const cmp = state.complaints.find(c => c.id === complaintId);
+            if (!cmp) return;
+
+            document.getElementById('resolveComplaintId').value = cmp.id;
+            
+            const adminUsers = state.users.filter(u => u.role === 'Admin');
+            const adminOpts = `<option value="Unassigned">-- Unassigned --</option>` + adminUsers.map(a => 
+                `<option value="${a.name}" ${cmp.assignedAdmin === a.name ? 'selected' : ''}>${a.name}</option>`
+            ).join('');
+
+            document.getElementById('resolveAssignAdmin').innerHTML = adminOpts;
+            document.getElementById('resolveTicketStatus').value = cmp.status;
+            document.getElementById('resolveRemarks').value = cmp.resolutionRemarks || '';
+
+            const linkedAsset = state.assets.find(a => a.id === cmp.assetId);
+            if (linkedAsset) {
+                document.getElementById('resolveAssetStatus').value = linkedAsset.status;
+            }
+
+            resolveModal.classList.remove('hidden');
+        };
+
+        window.closeResolveModal = () => {
+            resolveModal.classList.add('hidden');
+        };
+
+        window.handleResolveComplaintSubmit = (e) => {
+            e.preventDefault();
+            const id = document.getElementById('resolveComplaintId').value;
+            const cmp = state.complaints.find(c => c.id === id);
+            if (!cmp) return;
+
+            const assignedAdmin = document.getElementById('resolveAssignAdmin').value;
+            const ticketStatus = document.getElementById('resolveTicketStatus').value;
+            const newAssetStatus = document.getElementById('resolveAssetStatus').value;
+            const remarks = document.getElementById('resolveRemarks').value;
+
+            cmp.assignedAdmin = assignedAdmin;
+            cmp.status = ticketStatus;
+            cmp.resolutionRemarks = remarks;
+            saveComplaints();
+
+            const linkedAsset = state.assets.find(a => a.id === cmp.assetId);
+            if (linkedAsset) {
+                linkedAsset.status = newAssetStatus;
+                saveAssets();
+            }
+
+            closeResolveModal();
+            showToast("Complaint updated and Asset Directory synced.", "success");
+            render();
+        };
+
+        window.handleUserSubmit = (e) => {
+            e.preventDefault();
+            const email = document.getElementById('newUserEmail').value.trim();
+            const rawRooms = document.getElementById('newUserRooms').value;
+            const role = document.getElementById('newUserRole').value;
+
+            if (state.users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+                showToast("User with this email already exists.", "error");
+                return;
+            }
+
+            const department = getResolvedValueAndRegister('newUserDept', 'newUserDeptOther', 'departments');
+
+            const allocatedRooms = role === 'Admin' 
+                ? ['All Rooms'] 
+                : rawRooms.split(',').map(r => r.trim()).filter(Boolean);
+
+            if (role === 'User' && allocatedRooms.length === 0) {
+                showToast("Please allocate at least one room for standard users.", "error");
+                return;
+            }
+
+            const newUser = {
+                id: 'usr_' + Date.now(),
+                name: document.getElementById('newUserName').value,
+                email: email,
+                password: DEFAULT_PASSWORD,
+                department: department,
+                allocatedRooms: allocatedRooms,
+                role: role,
+                mustChangePassword: true,
+                createdAt: new Date().toISOString()
+            };
+
+            state.users.push(newUser);
+            saveUsers();
+            showToast(`User created with default password (${DEFAULT_PASSWORD}).`, "success");
+            e.target.reset();
+            render();
+        };
+
+        function renderLogin() {
+            return `
+                <div class="flex-1 flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-vvit-light">
+                    <div class="sm:mx-auto sm:w-full sm:max-w-md">
+                        <div class="flex justify-center mb-4 text-vvit-navy">
+                            <i class="fas fa-university text-5xl text-vvit-navy"></i>
+                        </div>
+                        <h2 class="text-center text-3xl font-extrabold text-vvit-navy">VVIT Asset Portal</h2>
+                        <p class="mt-1 text-center text-xs text-gray-500">Sign in with your department credentials</p>
+                    </div>
+
+                    <div class="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
+                        <div class="bg-white py-8 px-6 shadow sm:rounded-lg border-t-4 border-vvit-gold">
+                            <form class="space-y-4" onsubmit="handleLoginSubmit(event)">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Email Address</label>
+                                    <input id="email" type="email" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-vvit-navy" placeholder="user@vvit.edu">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Password</label>
+                                    <input id="password" type="password" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-vvit-navy" placeholder="••••••••">
+                                </div>
+                                <button type="submit" class="w-full py-2 px-4 rounded font-medium text-white bg-vvit-navy hover:bg-blue-800 transition">
+                                    Sign In
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderLayout(content) {
+            const isAdmin = state.currentUser?.role === 'Admin';
+            return `
+                <div class="h-screen flex overflow-hidden bg-gray-100">
+                    <div class="flex flex-col w-64 bg-vvit-navy">
+                        <div class="flex items-center justify-between h-16 bg-blue-900 px-4 border-b border-blue-800">
+                            <div class="flex items-center">
+                                <i class="fas fa-university text-vvit-gold text-xl mr-2"></i>
+                                <span class="text-white font-bold text-sm tracking-wider">VVIT ASSET AUDIT</span>
+                            </div>
+                        </div>
+                        <div class="flex-1 overflow-y-auto py-4">
+                            <nav class="px-2 space-y-1">
+                                <a href="#" onclick="navigate('dashboard')" class="${state.currentView === 'dashboard' ? 'bg-blue-800 text-white' : 'text-blue-100 hover:bg-blue-800'} flex items-center px-3 py-2 text-sm font-medium rounded">
+                                    <i class="fas fa-table mr-3"></i> Dashboard
+                                </a>
+                                <a href="#" onclick="navigate('add-asset')" class="${state.currentView === 'add-asset' ? 'bg-blue-800 text-white' : 'text-blue-100 hover:bg-blue-800'} flex items-center px-3 py-2 text-sm font-medium rounded">
+                                    <i class="fas fa-plus-circle mr-3"></i> Add New Asset
+                                </a>
+                                <a href="#" onclick="navigate('complaints')" class="${state.currentView === 'complaints' ? 'bg-blue-800 text-white' : 'text-blue-100 hover:bg-blue-800'} flex items-center px-3 py-2 text-sm font-medium rounded">
+                                    <i class="fas fa-tools mr-3"></i> Complaints Registry
+                                </a>
+                                ${isAdmin ? `
+                                <a href="#" onclick="navigate('manage-users')" class="${state.currentView === 'manage-users' ? 'bg-blue-800 text-white' : 'text-blue-100 hover:bg-blue-800'} flex items-center px-3 py-2 text-sm font-medium rounded mt-4">
+                                    <i class="fas fa-users-cog mr-3"></i> User Allocation
+                                </a>` : ''}
+                            </nav>
+                        </div>
+                        <div class="p-4 border-t border-blue-800 text-white text-xs">
+                            <p class="font-bold truncate">${state.currentUser.name} (${state.currentUser.role})</p>
+                            <p class="text-blue-300 truncate">${state.currentUser.department || 'N/A'}</p>
+                            <p class="mt-2 text-red-300 hover:underline cursor-pointer" onclick="handleLogout()">
+                                <i class="fas fa-sign-out-alt"></i> Logout
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 flex flex-col overflow-hidden">
+                        <main class="flex-1 overflow-y-auto p-8">
+                            ${content}
+                        </main>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderDashboard() {
+            const isAdmin = state.currentUser.role === 'Admin';
+            const filteredAssets = isAdmin 
+                ? state.assets 
+                : state.assets.filter(a => state.currentUser.allocatedRooms.includes(a.roomNo));
+
+            let tableRows = filteredAssets.map(asset => `
+                <tr class="hover:bg-gray-50 border-b text-sm">
+                    <td class="px-4 py-3 font-mono font-bold text-xs text-vvit-navy">${asset.id}</td>
+                    <td class="px-4 py-3 font-semibold text-gray-800">${asset.department}</td>
+                    <td class="px-4 py-3">${asset.roomNo}</td>
+                    <td class="px-4 py-3 font-mono">${asset.slNo}</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-0.5 text-xs font-semibold rounded ${asset.status === 'Working' ? 'bg-green-100 text-green-800' : (asset.status === 'Not Working' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')}">
+                            ${asset.status}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 max-w-xs truncate text-xs text-gray-700" title="${asset.configuration}">${asset.configuration}</td>
+                    <td class="px-4 py-3 text-xs">
+                        KBD: ${asset.keyboard} | MOU: ${asset.mouse}
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-600">
+                        <span class="font-medium text-gray-900">${asset.addedBy}</span>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        ${isAdmin ? `
+                            <button onclick="deleteAsset('${asset.id}')" class="text-red-600 hover:text-red-900" title="Delete from App & Sheets">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        ` : `
+                            <span class="text-xs text-gray-400 italic">Locked</span>
+                        `}
+                    </td>
+                </tr>
+            `).join('');
+
+            if (filteredAssets.length === 0) {
+                tableRows = `<tr><td colspan="9" class="p-6 text-center text-gray-500">No assets found in your allocated scope.</td></tr>`;
+            }
+
+            const content = `
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">IT Inventory Directory</h1>
+                        <p class="text-sm text-gray-500">
+                            ${isAdmin ? 'Showing all assets across institute departments' : `Showing assets assigned to your rooms: ${state.currentUser.allocatedRooms.join(', ')}`}
+                        </p>
+                    </div>
+                    <button onclick="navigate('add-asset')" class="bg-vvit-gold text-vvit-navy px-4 py-2 rounded font-semibold hover:bg-yellow-500">
+                        <i class="fas fa-plus mr-1"></i> Add Asset
+                    </button>
+                </div>
+
+                <div class="bg-white rounded shadow overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50 text-left text-xs uppercase text-gray-500 font-medium">
+                            <tr>
+                                <th class="px-4 py-3">Asset ID</th>
+                                <th class="px-4 py-3">Department</th>
+                                <th class="px-4 py-3">Room</th>
+                                <th class="px-4 py-3">Serial No</th>
+                                <th class="px-4 py-3">Status</th>
+                                <th class="px-4 py-3">Configuration</th>
+                                <th class="px-4 py-3">Peripherals</th>
+                                <th class="px-4 py-3">Added By</th>
+                                <th class="px-4 py-3 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </div>
+            `;
+            return renderLayout(content);
+        }
+
+        function renderComplaints() {
+            const isAdmin = state.currentUser.role === 'Admin';
+            
+            const accessibleComplaints = isAdmin
+                ? state.complaints
+                : state.complaints.filter(c => state.currentUser.allocatedRooms.includes(c.roomNo));
+
+            const availableAssets = isAdmin
+                ? state.assets
+                : state.assets.filter(a => state.currentUser.allocatedRooms.includes(a.roomNo));
+
+            const assetOptions = availableAssets.map(a => 
+                `<option value="${a.id}">${a.id} | Room ${a.roomNo} | ${a.department} (${a.status})</option>`
+            ).join('');
+
+            const rows = accessibleComplaints.map(c => `
+                <tr class="border-b text-sm">
+                    <td class="px-4 py-3 font-mono font-bold text-xs text-vvit-navy">${c.assetId || '-'}</td>
+                    <td class="px-4 py-3 font-semibold text-gray-900">${c.department}</td>
+                    <td class="px-4 py-3">${c.roomNo}</td>
+                    <td class="px-4 py-3 font-mono text-xs">${c.slNo}</td>
+                    <td class="px-4 py-3 max-w-xs text-xs text-gray-700">${c.issueDescription}</td>
+                    <td class="px-4 py-3 text-xs font-semibold text-vvit-navy">
+                        ${c.assignedAdmin !== 'Unassigned' ? `<i class="fas fa-user-shield mr-1"></i> ${c.assignedAdmin}` : '<span class="text-gray-400">Unassigned</span>'}
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-0.5 text-xs font-semibold rounded ${c.status === 'Resolved' ? 'bg-green-100 text-green-800' : (c.status === 'In Progress' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800')}">
+                            ${c.status}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-500">${c.reportedBy}</td>
+                    <td class="px-4 py-3 text-right">
+                        ${isAdmin ? `
+                            <button onclick="openResolveModal('${c.id}')" class="text-xs bg-vvit-navy text-white px-2 py-1 rounded hover:bg-blue-800">
+                                Manage / Resolve
+                            </button>
+                        ` : `
+                            <span class="text-xs text-gray-400">${c.resolutionRemarks ? c.resolutionRemarks : 'Pending Review'}</span>
+                        `}
+                    </td>
+                </tr>
+            `).join('');
+
+            const content = `
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-gray-900">Complaints & Maintenance Registry</h1>
+                    <p class="text-sm text-gray-500">Track and manage hardware breakdowns and maintenance tickets</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-white p-5 rounded shadow border-t-4 border-vvit-gold">
+                        <h3 class="font-bold text-gray-900 mb-3"><i class="fas fa-exclamation-triangle text-vvit-gold mr-1"></i> Log Maintenance Ticket</h3>
+                        <form onsubmit="handleComplaintSubmit(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700">Select Target Asset *</label>
+                                <select id="complaintAsset" required class="mt-1 block w-full border border-gray-300 rounded px-2 py-2 text-xs bg-white focus:ring-vvit-navy">
+                                    ${assetOptions || '<option disabled>No assets available in your room scope</option>'}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700">Fault Description / Issue *</label>
+                                <textarea id="complaintIssue" required rows="3" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-xs focus:ring-vvit-navy" placeholder="e.g. System not powering on, blank screen display error..."></textarea>
+                            </div>
+                            <button type="submit" ${availableAssets.length === 0 ? 'disabled' : ''} class="w-full py-2 bg-vvit-navy text-white text-xs font-bold rounded hover:bg-blue-800 transition">
+                                Submit Complaint
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="lg:col-span-2 bg-white rounded shadow overflow-hidden">
+                        <div class="p-4 border-b flex justify-between items-center">
+                            <h3 class="font-bold text-gray-900">Active Complaints</h3>
+                            <span class="text-xs text-gray-500">Showing tickets in your allocated scope</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50 text-left text-xs uppercase text-gray-500">
+                                    <tr>
+                                        <th class="px-4 py-2">Asset ID</th>
+                                        <th class="px-4 py-2">Department</th>
+                                        <th class="px-4 py-2">Room</th>
+                                        <th class="px-4 py-2">SL No</th>
+                                        <th class="px-4 py-2">Issue</th>
+                                        <th class="px-4 py-2">Assigned Admin</th>
+                                        <th class="px-4 py-2">Status</th>
+                                        <th class="px-4 py-2">Reported By</th>
+                                        <th class="px-4 py-2 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${rows || '<tr><td colspan="9" class="p-6 text-center text-gray-400">No active complaints found.</td></tr>'}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return renderLayout(content);
+        }
+
+        function renderAddAsset() {
+            const isAdmin = state.currentUser.role === 'Admin';
+            let roomOptions = '';
+            if (isAdmin) {
+                roomOptions = `
+                    <option value="Lab 101">Lab 101</option>
+                    <option value="Lab 102">Lab 102</option>
+                    <option value="Lab 201">Lab 201</option>
+                    <option value="Room 002">Room 002</option>
+                    <option value="Server Room">Server Room</option>
+                    <option value="Staff Room">Staff Room</option>
+                `;
+            } else {
+                roomOptions = state.currentUser.allocatedRooms.map(r => `<option value="${r}">${r}</option>`).join('');
+            }
+
+            let departmentFieldHtml = '';
+            if (isAdmin) {
+                departmentFieldHtml = `
+                    <label class="block text-xs font-semibold text-gray-700">1. Department *</label>
+                    <select id="assetDepartment" onchange="toggleOtherInput('assetDepartment', 'assetDepartmentOther')" required class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-vvit-navy bg-white">
+                        ${buildOptions('departments')}
+                    </select>
+                    <input type="text" id="assetDepartmentOther" class="mt-2 block w-full border border-blue-400 rounded px-3 py-1.5 text-xs bg-white hidden" placeholder="Enter new custom department">
+                `;
+            } else {
+                departmentFieldHtml = `
+                    <label class="block text-xs font-semibold text-gray-700">1. Department</label>
+                    <input type="text" id="assetDepartment" disabled value="${state.currentUser.department || 'General'}" class="mt-1 block w-full bg-gray-200 border border-gray-300 rounded px-3 py-2 text-sm text-gray-600 font-medium">
+                `;
+            }
+
+            const content = `
+                <div class="max-w-4xl mx-auto bg-white p-6 rounded shadow border-t-4 border-vvit-navy">
+                    <h2 class="text-xl font-bold text-gray-900 mb-1">Register Asset Record</h2>
+                    <p class="text-xs text-gray-500 mb-4">Saved records are synchronized with your Google Sheet and locked from standard editing.</p>
+
+                    <form onsubmit="handleAssetSubmit(event)" class="space-y-5">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded border">
+                            <div>
+                                ${departmentFieldHtml}
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-700">2. Allocated Room *</label>
+                                <select id="roomNo" required class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-vvit-navy bg-white">
+                                    ${roomOptions}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-700">3. Asset Status *</label>
+                                <select id="assetStatus" onchange="onAssetStatusChange()" class="mt-1 block w-full border-2 border-vvit-navy rounded px-3 py-2 text-sm font-bold bg-white text-vvit-navy">
+                                    <option value="Working">Working</option>
+                                    <option value="Not Working">Not Working</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="workingFieldsContainer" class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700">Serial Number (SL No) *</label>
+                                    <input type="text" id="slNo" required class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="e.g. VVIT/CSE/SYS-202">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700">Network Connectivity</label>
+                                    <select id="network" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm">
+                                        <option value="LAN">LAN</option>
+                                        <option value="WiFi">WiFi</option>
+                                        <option value="None">None</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="border border-blue-100 bg-blue-50/40 p-4 rounded-lg space-y-4">
+                                <h3 class="text-xs font-bold text-vvit-navy uppercase tracking-wider">System Hardware Configuration</h3>
+                                
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700">Desktop / PC Brand</label>
+                                        <select id="desktopBrand" onchange="toggleOtherInput('desktopBrand', 'desktopBrandOther')" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white">
+                                            ${buildOptions('desktopBrands')}
+                                        </select>
+                                        <input type="text" id="desktopBrandOther" class="mt-2 block w-full border border-blue-400 rounded px-3 py-1.5 text-xs bg-white hidden" placeholder="Enter custom desktop brand">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700">Monitor Brand</label>
+                                        <select id="monitorBrand" onchange="toggleOtherInput('monitorBrand', 'monitorBrandOther')" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white">
+                                            ${buildOptions('monitorBrands')}
+                                        </select>
+                                        <input type="text" id="monitorBrandOther" class="mt-2 block w-full border border-blue-400 rounded px-3 py-1.5 text-xs bg-white hidden" placeholder="Enter custom monitor brand">
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700">Processor Brand</label>
+                                        <select id="cpuBrand" onchange="onProcessorBrandChange()" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white">
+                                            ${buildOptions('cpuBrands')}
+                                        </select>
+                                        <input type="text" id="cpuBrandOther" class="mt-2 block w-full border border-blue-400 rounded px-3 py-1.5 text-xs bg-white hidden" placeholder="Enter custom CPU brand">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700">Processor Model</label>
+                                        <select id="cpuModel" onchange="toggleOtherInput('cpuModel', 'cpuModelOther')" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white">
+                                            ${buildOptions('cpuModelsIntel')}
+                                        </select>
+                                        <input type="text" id="cpuModelOther" class="mt-2 block w-full border border-blue-400 rounded px-3 py-1.5 text-xs bg-white hidden" placeholder="Enter custom CPU model">
+                                    </div>
+                                    <div id="intelGenContainer">
+                                        <label class="block text-xs font-medium text-gray-700">Intel Generation</label>
+                                        <select id="intelGen" onchange="toggleOtherInput('intelGen', 'intelGenOther')" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white">
+                                            ${buildOptions('intelGens')}
+                                        </select>
+                                        <input type="text" id="intelGenOther" class="mt-2 block w-full border border-blue-400 rounded px-3 py-1.5 text-xs bg-white hidden" placeholder="Enter custom generation">
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700">RAM Capacity</label>
+                                        <select id="ramCapacity" onchange="toggleOtherInput('ramCapacity', 'ramCapacityOther')" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white">
+                                            ${buildOptions('ramCapacities')}
+                                        </select>
+                                        <input type="text" id="ramCapacityOther" class="mt-2 block w-full border border-blue-400 rounded px-3 py-1.5 text-xs bg-white hidden" placeholder="e.g. 12 GB, 128 GB">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700">Storage Type</label>
+                                        <select id="storageType" onchange="onStorageTypeChange()" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white">
+                                            <option value="SSD">SSD only</option>
+                                            <option value="HDD">HDD only</option>
+                                            <option value="Both">Both (SSD + HDD)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700">Operating System (OS)</label>
+                                        <select id="osType" onchange="toggleOtherInput('osType', 'osTypeOther')" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white">
+                                            ${buildOptions('osTypes')}
+                                        </select>
+                                        <input type="text" id="osTypeOther" class="mt-2 block w-full border border-blue-400 rounded px-3 py-1.5 text-xs bg-white hidden" placeholder="Enter OS name & version">
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                                    <div id="ssdCapacityContainer">
+                                        <label class="block text-xs font-medium text-gray-700">SSD Size</label>
+                                        <select id="ssdSize" onchange="toggleOtherInput('ssdSize', 'ssdSizeOther')" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white">
+                                            ${buildOptions('ssdSizes')}
+                                        </select>
+                                        <input type="text" id="ssdSizeOther" class="mt-2 block w-full border border-blue-400 rounded px-3 py-1.5 text-xs bg-white hidden" placeholder="e.g. 240 GB, 4 TB">
+                                    </div>
+                                    <div id="hddCapacityContainer" class="hidden">
+                                        <label class="block text-xs font-medium text-gray-700">HDD Size</label>
+                                        <select id="hddSize" onchange="toggleOtherInput('hddSize', 'hddSizeOther')" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white">
+                                            ${buildOptions('hddSizes')}
+                                        </select>
+                                        <input type="text" id="hddSizeOther" class="mt-2 block w-full border border-blue-400 rounded px-3 py-1.5 text-xs bg-white hidden" placeholder="e.g. 320 GB, 4 TB">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700">Keyboard Available</label>
+                                <select id="keyboard" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm">
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700">Mouse Available</label>
+                                <select id="mouse" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm">
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700">Remarks / Condition Details</label>
+                            <input type="text" id="remarks" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="Fault description or additional notes">
+                        </div>
+
+                        <div class="flex justify-end gap-3 pt-2">
+                            <button type="button" onclick="navigate('dashboard')" class="px-4 py-2 border rounded text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+                            <button type="submit" class="px-4 py-2 bg-vvit-navy text-white font-medium rounded text-sm hover:bg-blue-800">
+                                Save & Register Asset
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            return renderLayout(content);
+        }
+
+        function renderUserManagement() {
+            if (state.currentUser?.role !== 'Admin') {
+                return renderLayout(`<div class="p-6 bg-red-100 text-red-700 rounded">Access Denied.</div>`);
+            }
+
+            const rows = state.users.map(u => `
+                <tr class="border-b text-sm">
+                    <td class="px-4 py-3 font-medium">${u.name}</td>
+                    <td class="px-4 py-3">${u.email}</td>
+                    <td class="px-4 py-3 font-semibold text-vvit-navy">${u.department || '-'}</td>
+                    <td class="px-4 py-3 text-xs text-gray-600">${Array.isArray(u.allocatedRooms) ? u.allocatedRooms.join(', ') : '-'}</td>
+                    <td class="px-4 py-3"><span class="px-2 py-0.5 text-xs rounded ${u.role === 'Admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}">${u.role}</span></td>
+                    <td class="px-4 py-3 text-xs">
+                        <div class="flex items-center gap-2">
+                            <button onclick="openEditUserModal('${u.id}')" class="text-blue-600 hover:text-blue-800 text-xs font-bold" title="Edit Department / Rooms">
+                                <i class="fas fa-edit mr-0.5"></i> Edit
+                            </button>
+                            <button onclick="resetUserPassword('${u.id}')" class="text-orange-600 hover:text-orange-800 text-xs font-bold" title="Reset to vvit@123">
+                                <i class="fas fa-key mr-0.5"></i> Reset
+                            </button>
+                            <button onclick="deleteUser('${u.id}')" class="text-red-600 hover:text-red-800 text-xs font-bold" title="Delete User">
+                                <i class="fas fa-trash-alt mr-0.5"></i> Del
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            const content = `
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-white p-5 rounded shadow border-t-4 border-vvit-navy">
+                        <h3 class="font-bold text-gray-900 mb-1">Create User</h3>
+                        <p class="text-xs text-gray-500 mb-3">Default password is set automatically to <code class="font-mono text-vvit-navy font-bold">vvit@123</code></p>
+                        
+                        <form onsubmit="handleUserSubmit(event)" class="space-y-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700">Full Name *</label>
+                                <input type="text" id="newUserName" required class="mt-1 block w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700">Email Address *</label>
+                                <input type="email" id="newUserEmail" required class="mt-1 block w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700">Department *</label>
+                                <select id="newUserDept" onchange="toggleOtherInput('newUserDept', 'newUserDeptOther')" class="mt-1 block w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                                    ${buildOptions('departments')}
+                                </select>
+                                <input type="text" id="newUserDeptOther" class="mt-2 block w-full border border-blue-400 rounded px-2 py-1.5 text-xs bg-white hidden" placeholder="Enter new custom department">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700">Allocated Rooms (Comma separated) *</label>
+                                <input type="text" id="newUserRooms" class="mt-1 block w-full border border-gray-300 rounded px-2 py-1.5 text-sm" placeholder="e.g. Lab 101, Lab 102, Room 002">
+                                <span class="text-[10px] text-gray-400">User will only be permitted to see/audit these rooms.</span>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700">System Role</label>
+                                <select id="newUserRole" class="mt-1 block w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                                    <option value="User">Standard User</option>
+                                    <option value="Admin">Administrator</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="w-full py-2 bg-vvit-navy text-white text-sm font-semibold rounded hover:bg-blue-800">
+                                Create Account
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="lg:col-span-2 bg-white rounded shadow overflow-hidden">
+                        <div class="p-4 border-b">
+                            <h3 class="font-bold text-gray-900">Personnel & Room Matrix</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50 text-left text-xs uppercase text-gray-500">
+                                    <tr>
+                                        <th class="px-4 py-2">Name</th>
+                                        <th class="px-4 py-2">Email</th>
+                                        <th class="px-4 py-2">Department</th>
+                                        <th class="px-4 py-2">Allocated Rooms</th>
+                                        <th class="px-4 py-2">Role</th>
+                                        <th class="px-4 py-2">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${rows}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return renderLayout(content);
+        }
+
+        function render() {
+            let html = '';
+            switch (state.currentView) {
+                case 'login': html = renderLogin(); break;
+                case 'dashboard': html = renderDashboard(); break;
+                case 'add-asset': html = renderAddAsset(); break;
+                case 'complaints': html = renderComplaints(); break;
+                case 'manage-users': html = renderUserManagement(); break;
+                default: html = renderLogin();
+            }
+            appContainer.innerHTML = html;
+        }
+
+        window.onload = () => {
+            loadLocalData();
+            render();
+        };
+    </script>
+</body>
+</html>
